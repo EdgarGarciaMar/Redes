@@ -16,7 +16,7 @@
 unsigned char MACorigen[6],MASK[4],IP[4];
 unsigned char MACbroad[6]={0xff,0xff,0xff,0xff,0xff,0xff};
 unsigned char ethertype[2]={0x0c,0x0c};
-unsigned char TramaEnv[1514];
+unsigned char TramaEnv[1514],tramaRec[1514];//maximo tamano para recibir o enviar datos
        
 int obtenerDatos( int ds){//funcion para obtener el index
     struct ifreq nic;
@@ -104,6 +104,34 @@ void enviarTrama(int ds, int index, unsigned char *trama){
     }
 }
 
+void imprimirTrama(unsigned char *paq,int len){//se envia la trama y el tamano
+    int i;
+    for(i=0;i<len;i++){
+        if(i%16==0)printf("\n");
+        printf(" %.2x",paq[i]);
+        
+    }
+    printf("\n");
+}
+
+void recibirTrama(int ds, unsigned char *trama){
+    int tam;
+while(1)//bucle de capturacion infinito
+{
+    tam=recvfrom(ds,trama,1514,0,NULL,0);
+    if(tam==-1){
+        perror("\n Error al recibir");
+        exit(0);
+    }
+    else{
+        if(!memcmp(trama+0,MACorigen,6)||!memcmp(trama+6,MACorigen,6)){//captura la mac si esta en el destino o el origen
+        imprimirTrama(trama,tam);
+        break;
+        }
+    }
+}
+}
+
 int main()
 {
 int packet_socket,indice;
@@ -117,7 +145,9 @@ perror("\n Exito al abrir el socket");
 indice = obtenerDatos(packet_socket);
 EstructuraTrama(TramaEnv);
 enviarTrama(packet_socket,indice,TramaEnv);
+recibirTrama(packet_socket,tramaRec);
 }
 close(packet_socket);
 return 0;
 }
+
