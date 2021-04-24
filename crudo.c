@@ -110,7 +110,7 @@ void enviarTrama(int ds, int index, unsigned char *trama){
     }
 }
 
-void imprimirTrama(unsigned char *paq,int len){//se envia la trama y el tamano
+void imprimirTrama(unsigned char *paq,int len){//imprime la trama
     int i;
     for(i=0;i<len;i++){
         if(i%16==0)printf("\n");
