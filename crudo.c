@@ -10,6 +10,8 @@
        #include <net/if.h>
        #include <string.h>
        #include <sys/types.h>
+       #include <sys/time.h>
+       #include <unistd.h>
        
 
 
@@ -17,13 +19,14 @@ unsigned char MACorigen[6],MASK[4],IP[4];
 unsigned char MACbroad[6]={0xff,0xff,0xff,0xff,0xff,0xff};
 unsigned char ethertype[2]={0x0c,0x0c};
 unsigned char TramaEnv[1514],tramaRec[1514];//maximo tamano para recibir o enviar datos
-       
+struct ifreq nic; 
+
 int obtenerDatos( int ds){//funcion para obtener el index
-    struct ifreq nic;
     int i, index;
     unsigned char nombre[20];
     printf("\n Ingresa el nombre del la interfaz:");
     scanf("%s",nombre);
+    //gets(nombre);
     strcpy(nic.ifr_name,nombre);//copea el string
     
     //Indice de Red
@@ -36,7 +39,11 @@ int obtenerDatos( int ds){//funcion para obtener el index
         printf("\n El indice es: %d\n",index);
         
     }
-    //Direccion MAC SIOCGIFADDR
+
+        return index;
+}
+void ipmaskMAC(int ds){
+        //Direccion MAC SIOCGIFADDR
     if(ioctl(ds,SIOCGIFHWADDR,&nic) == -1){
             perror("\n Error al obtener la MAC");
             exit(0);
@@ -44,13 +51,13 @@ int obtenerDatos( int ds){//funcion para obtener el index
         else{
             memcpy(MACorigen,nic.ifr_hwaddr.sa_data,6);
             printf("\n La MAC es:\t");
-            for(i=0;i<6;i++){
+            for(int i=0;i<6;i++){
                 printf("%.2x:",MACorigen[i]);
             }
             printf("\n");
         }
-        
-    //Direccion IP   SIOCGIFADDR 
+    
+//Direccion IP   SIOCGIFADDR 
     if(ioctl(ds,SIOCGIFADDR,&nic) == -1){
             perror("\n Error al obtener la IP");
             exit(0);
@@ -58,7 +65,7 @@ int obtenerDatos( int ds){//funcion para obtener el index
         else{
             memcpy(IP,nic.ifr_addr.sa_data,6);
             printf("\n La IP es:\t");
-            for(i=2;i<6;i++){
+            for(int i=2;i<6;i++){
                 printf("%2d.",IP[i]);
             }
             printf("\n");
@@ -72,12 +79,11 @@ int obtenerDatos( int ds){//funcion para obtener el index
         else{
             memcpy(MASK,nic.ifr_netmask.sa_data,6);
             printf("\n La MASK es:\t");
-            for(i=2;i<6;i++){
+            for(int i=2;i<6;i++){
                 printf("%2d.",MASK[i]);
             }
             printf("\n");
         }
-        return index;
 }
 
 void EstructuraTrama(unsigned char *trama){
@@ -115,21 +121,35 @@ void imprimirTrama(unsigned char *paq,int len){//se envia la trama y el tamano
 }
 
 void recibirTrama(int ds, unsigned char *trama){
-    int tam;
-while(1)//bucle de capturacion infinito
+    int tam,bandera=0;
+    //Declaracion de gettimeofday
+    struct timeval start, end;
+    long mtime=0, seconds, useconds;    
+
+    gettimeofday(&start, NULL);
+    while(mtime<10000)//while para mostrar el tiempo de respuesta y si en ese tiempo recibe un atrama filtrada
 {
-    tam=recvfrom(ds,trama,1514,0,NULL,0);
+    tam=recvfrom(ds,trama,1514,MSG_DONTWAIT,NULL,0);
     if(tam==-1){
         perror("\n Error al recibir");
-        exit(0);
     }
-    else{
-        if(!memcmp(trama+0,MACorigen,6)||!memcmp(trama+6,MACorigen,6)){//captura la mac si esta en el destino o el origen
+    else
+        if(!memcmp(trama+0,MACorigen,6)||!memcmp(trama+6,MACorigen,6)){//captura la mac si esta en el destino o el origen,no se modifico el 2 filtro
+        printf("\nTrama con MAC Recibida:");
         imprimirTrama(trama,tam);
-        break;
+        bandera=1;
         }
-    }
+    usleep(2000);
+    gettimeofday(&end, NULL);
+
+    seconds  = end.tv_sec  - start.tv_sec;
+    useconds = end.tv_usec - start.tv_usec;
+
+    mtime = ((seconds) * 1000 + useconds/1000.0) + 0.5;
+    if(bandera) break;
+    
 }
+    printf("Elapsed time: %ld milliseconds\n", mtime);
 }
 
 int main()
@@ -146,8 +166,10 @@ indice = obtenerDatos(packet_socket);
 EstructuraTrama(TramaEnv);
 enviarTrama(packet_socket,indice,TramaEnv);
 recibirTrama(packet_socket,tramaRec);
+ipmaskMAC(packet_socket);
 }
 close(packet_socket);
 return 0;
 }
+
 
