@@ -1,4 +1,4 @@
-       //Requiere permisos de super usuario o admin
+       //Requiere permisos de super usuario o admin  practica 2
        #include <stdio.h>
        #include <stdlib.h>
        #include <sys/socket.h>
